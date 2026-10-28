@@ -1,0 +1,6 @@
+assets/
+data/
+models/*.pth
+__pycache__/
+.ipynb_checkpoints/
+.venv/

@@ -1,0 +1,45 @@
+name: Publish research assets
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-assets.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: research-assets-v1
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download and verify official files
+        run: python scripts/prepare_assets.py
+      - name: Create draft, upload files, verify checksums, publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          COMMIT_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag=research-assets-v1
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --draft --target "$COMMIT_SHA" \
+              --title "ResNet18 V1 + Imagenette 320" \
+              --notes-file THIRD_PARTY_NOTICES.md
+          fi
+          gh release upload "$tag" assets/* --clobber
+          mkdir verified
+          gh release download "$tag" --dir verified
+          (cd verified && sha256sum --check SHA256SUMS.txt)
+          gh release edit "$tag" --draft=false
